@@ -5,7 +5,9 @@ use csv::Reader;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::opt::OutputFormat;
+use crate::cli::OutputFormat;
+
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Player {
     #[serde(rename = "Name")]
