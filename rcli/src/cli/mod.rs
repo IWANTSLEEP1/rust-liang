@@ -1,34 +1,66 @@
+
 mod base64;
 mod csv;
 mod genpass;
-use std::path::Path;
+mod http;
+mod text;
 
-pub use self::{base64::Base64Format, base64::Base64SubCommand, csv::OutputFormat};
-use self::{csv::CsvOpts, genpass::GenPassOpts};
 use clap::Parser;
+use enum_dispatch::enum_dispatch;
+use std::path::{Path, PathBuf};
+
+pub use self::{base64::*, csv::*, genpass::*, http::*, text::*};
 
 #[derive(Debug, Parser)]
-#[command(name = "rcli", version, about, long_about = None)]
+#[command(name = "rcli", version, author, about, long_about = None)]
 pub struct Opts {
     #[command(subcommand)]
-    pub subcmd: SubCommand,
+    pub cmd: SubCommand,
 }
 
 #[derive(Debug, Parser)]
+#[enum_dispatch(CmdExector)]
 pub enum SubCommand {
-    #[command(name = "csv", about = "show csv, or convert csv to json")]
+    #[command(name = "csv", about = "Show CSV, or convert CSV to other formats")]
     Csv(CsvOpts),
-    #[command(name = "genpass", about = "generate password")]
+    #[command(name = "genpass", about = "Generate a random password")]
     GenPass(GenPassOpts),
-    #[command(subcommand)]
+    #[command(subcommand, about = "Base64 encode/decode")]
     Base64(Base64SubCommand),
+    #[command(subcommand, about = "Text sign/verify")]
+    Text(TextSubCommand),
+    #[command(subcommand, about = "HTTP server")]
+    Http(HttpSubCommand),
 }
 
-fn verify_input_file(filename: &str) -> Result<String, &'static str> {
-    // Rust 的 .into() 方法是 Into<T> trait 的快捷调用方式，能够将可转换类型自动转换为目标类型
+fn verify_file(filename: &str) -> Result<String, &'static str> {
+    // if input is "-" or file exists
     if filename == "-" || Path::new(filename).exists() {
         Ok(filename.into())
     } else {
-        Err("file not found")
+        Err("File does not exist")
+    }
+}
+
+fn verify_path(path: &str) -> Result<PathBuf, &'static str> {
+    // if input is "-" or file exists
+    let p = Path::new(path);
+    if p.exists() && p.is_dir() {
+        Ok(path.into())
+    } else {
+        Err("Path does not exist or is not a directory")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_verify_input_file() {
+        assert_eq!(verify_file("-"), Ok("-".into()));
+        assert_eq!(verify_file("*"), Err("File does not exist"));
+        assert_eq!(verify_file("Cargo.toml"), Ok("Cargo.toml".into()));
+        assert_eq!(verify_file("not-exist"), Err("File does not exist"));
     }
 }
